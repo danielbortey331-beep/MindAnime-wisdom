@@ -16,6 +16,9 @@ import { PaywallModal } from '@/components/PaywallModal';
 import { UpgradeBanner } from '@/components/UpgradeBanner';
 import { WelcomeModal } from '@/components/WelcomeModal';
 import { PremiumLockModal } from '@/components/PremiumLockModal';
+import { useGamification } from '@/context/GamificationContext';
+import { SenseiMascot, type SenseiMood } from '@/components/SenseiMascot';
+import { StreakDrawer } from '@/components/StreakDrawer';
 import { BottomTabBar, type TabId } from '@/components/BottomTabBar';
 
 interface FeedPost extends Post {
@@ -45,6 +48,8 @@ function App() {
   const [milestone, setMilestone] = useState<number | null>(null);
 
   const [activeTab, setActiveTab] = useState<TabId>('feed');
+  const [showStreakDrawer, setShowStreakDrawer] = useState(false);
+  const { streak: lessonStreak, todayXp, goalMet } = useGamification();
 
   useEffect(() => {
     const sectionIds: Exclude<TabId, 'share'>[] = ['feed', 'streak', 'about'];
@@ -235,12 +240,24 @@ function App() {
 
   const showBanner = !isAdmin && subStatus && shouldShowUpgradeBanner(subStatus) && !bannerDismissed;
 
+  const mascotMood: SenseiMood = goalMet
+    ? 'zen'
+    : lessonStreak > 0 && todayXp === 0
+      ? 'urgent'
+      : 'welcoming';
+  const mascotMessage =
+    mascotMood === 'zen'
+      ? 'Daily goal reached. Your mind grows sharper every day.'
+      : mascotMood === 'urgent'
+        ? `Don't let your ${lessonStreak}-day focus streak burn out!`
+        : "Your mind is your sharpest blade. Ready for today's lesson?";
+
   return (
     <div className="mx-auto min-h-[100dvh] w-full max-w-md overflow-x-hidden bg-ink-950 pb-24 md:border-x md:border-ink-800/80 md:shadow-2xl">
       <Header
         onLogoClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
         onSubmitClick={handleSubmitClick}
-        streakCount={streak?.current_streak ?? 0}
+        onStreakClick={() => setShowStreakDrawer(true)}
         onSignInClick={() => setShowAuthModal(true)}
         onUpgradeClick={() => setShowPaywall(true)}
         subStatus={subStatus}
@@ -350,6 +367,11 @@ function App() {
           <p className="text-sm text-ink-400">
             Curated breakdowns and community perspectives — upvote what resonates
           </p>
+        </div>
+
+        {/* Sensei mentor */}
+        <div className="mb-10">
+          <SenseiMascot mood={mascotMood} message={mascotMessage} />
         </div>
 
         {/* Controls */}
@@ -559,6 +581,7 @@ function App() {
         />
       )}
       {showWelcome && <WelcomeModal onClose={handleWelcomeClose} />}
+      {showStreakDrawer && <StreakDrawer onClose={() => setShowStreakDrawer(false)} />}
     </div>
   );
 }

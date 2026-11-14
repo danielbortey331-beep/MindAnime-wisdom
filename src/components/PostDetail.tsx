@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { X, BookOpen, Quote as QuoteIcon, ArrowUp, MessageCircle, Loader2, Send, Lock, Globe, ListChecks, Wrench } from 'lucide-react';
+import { X, BookOpen, Quote as QuoteIcon, ArrowUp, MessageCircle, Loader2, Send, Lock, Globe, ListChecks, Wrench, Zap, Check } from 'lucide-react';
 import { supabase, type Post, type Comment } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { getSubscriptionStatus } from '@/lib/subscription';
+import { XP_PER_LESSON } from '@/lib/gamification';
+import { useGamification, type LessonCompletionResult } from '@/context/GamificationContext';
+import { LessonCelebrationCard } from '@/components/LessonCelebrationCard';
 
 interface PostDetailProps {
   post: Post;
@@ -18,6 +21,9 @@ interface CommentWithVotes extends Comment {
 
 export function PostDetail({ post, onClose, onRequireAuth, onRequireUpgrade }: PostDetailProps) {
   const { user, profile } = useAuth();
+  const { isLessonCompleted, completeLesson } = useGamification();
+  const [celebration, setCelebration] = useState<LessonCompletionResult | null>(null);
+  const lessonDone = isLessonCompleted(post.id);
   const [comments, setComments] = useState<CommentWithVotes[]>([]);
   const [loadingComments, setLoadingComments] = useState(true);
   const [newComment, setNewComment] = useState('');
@@ -115,6 +121,11 @@ export function PostDetail({ post, onClose, onRequireAuth, onRequireUpgrade }: P
       supabase.removeChannel(channel);
     };
   }, [post.id, fetchComments, fetchPostVotes]);
+
+  const handleCompleteLesson = () => {
+    const result = completeLesson(post.id);
+    if (result.xpGained > 0) setCelebration(result);
+  };
 
   const handlePostVote = async () => {
     if (!user) { onRequireAuth(); return; }
@@ -399,6 +410,38 @@ export function PostDetail({ post, onClose, onRequireAuth, onRequireUpgrade }: P
                 </div>
               )}
 
+              {/* Lesson completion */}
+              {!isLocked && (
+                <div className="mb-10 flex flex-col items-center gap-4 rounded-2xl border border-gold-500/20 bg-gold-500/5 p-5 text-center sm:flex-row sm:justify-between sm:text-left">
+                  <div>
+                    <p className="text-sm font-medium text-ink-100">Finished reading?</p>
+                    <p className="text-xs text-ink-400">Log this lesson to earn XP and keep your streak alive.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCompleteLesson}
+                    disabled={lessonDone}
+                    className={`flex w-full items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-200 active:scale-95 sm:w-auto ${
+                      lessonDone
+                        ? 'border border-sage-600/40 bg-sage-600/15 text-sage-400'
+                        : 'bg-gradient-to-r from-gold-400 to-gold-600 text-ink-950 shadow-lg shadow-gold-600/20'
+                    }`}
+                  >
+                    {lessonDone ? (
+                      <>
+                        <Check className="h-4 w-4" strokeWidth={3} />
+                        Lesson completed
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="h-4 w-4" strokeWidth={2.5} />
+                        Complete Lesson (+{XP_PER_LESSON} XP)
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
               {/* Discussion section */}
               <div className="mt-10 border-t border-ink-800 pt-8">
                 <h3 className="mb-1 font-serif text-xl font-semibold text-ink-100">Discussion</h3>
@@ -488,6 +531,9 @@ export function PostDetail({ post, onClose, onRequireAuth, onRequireUpgrade }: P
               </div>
             </div>
           </article>
+          {celebration && (
+            <LessonCelebrationCard result={celebration} onContinue={onClose} />
+          )}
         </div>
       </div>
     </div>

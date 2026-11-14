@@ -1,11 +1,12 @@
-import { Brain, Flame, LogOut, User } from 'lucide-react';
+import { Brain, Flame, LogOut, User, Zap } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { useGamification } from '@/context/GamificationContext';
 import type { SubscriptionStatus } from '@/lib/subscription';
 
 interface HeaderProps {
   onLogoClick: () => void;
   onSubmitClick: () => void;
-  streakCount: number;
+  onStreakClick: () => void;
   onSignInClick: () => void;
   onUpgradeClick: () => void;
   subStatus: SubscriptionStatus | null;
@@ -14,12 +15,13 @@ interface HeaderProps {
 export function Header({
   onLogoClick,
   onSubmitClick,
-  streakCount,
+  onStreakClick,
   onSignInClick,
   onUpgradeClick,
   subStatus,
 }: HeaderProps) {
   const { user, profile, signOut } = useAuth();
+  const { streak, totalXp } = useGamification();
 
   return (
     <header className="sticky top-0 z-40 border-b border-ink-800/60 bg-ink-950/80 backdrop-blur-xl">
@@ -64,15 +66,19 @@ export function Header({
           </nav>
 
           {/* Streak badge */}
-          {streakCount > 0 && (
-            <a
-              href="#streak"
-              className="flex items-center gap-1.5 rounded-full border border-gold-500/30 bg-gold-500/10 px-3 py-1.5 text-xs font-semibold text-gold-400 transition-all hover:bg-gold-500/20"
-            >
-              <Flame className="h-3.5 w-3.5" strokeWidth={2.5} />
-              {streakCount}
-            </a>
-          )}
+          <button
+            type="button"
+            onClick={onStreakClick}
+            aria-label={`${streak} day streak, open calendar`}
+            className="flex items-center gap-1.5 rounded-full border border-gold-500/30 bg-gold-500/10 px-2.5 py-1.5 text-xs font-semibold text-gold-400 transition-all active:scale-95 hover:bg-gold-500/20"
+          >
+            <Flame className="h-3.5 w-3.5" strokeWidth={2.5} />
+            {streak}
+          </button>
+          <div className="flex items-center gap-1 rounded-full border border-ink-700 bg-ink-900/60 px-2.5 py-1.5 text-xs font-semibold text-ink-200">
+            <Zap className="h-3.5 w-3.5 text-gold-400" strokeWidth={2.5} />
+            {totalXp}
+          </div>
 
           {/* Auth area */}
           {user ? (
@@ -123,7 +129,7 @@ export function Header({
               onClick={onSubmitClick}
               className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-gold-400 to-gold-600 px-4 py-2 text-sm font-semibold text-ink-950 shadow-lg shadow-gold-600/20 transition-all hover:shadow-gold-500/30 sm:px-5"
             >
-              Share Perspective
+              Share<span className="hidden sm:inline"> Perspective</span>
             </button>
           )}
         </div>
