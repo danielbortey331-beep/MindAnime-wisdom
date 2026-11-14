@@ -6,6 +6,7 @@ import { getSubscriptionStatus } from '@/lib/subscription';
 import { XP_PER_LESSON } from '@/lib/gamification';
 import { useGamification, type LessonCompletionResult } from '@/context/GamificationContext';
 import { LessonCelebrationCard } from '@/components/LessonCelebrationCard';
+import { ReflectionsSection } from '@/components/ReflectionsSection';
 import { ShareQuoteModal } from '@/components/ShareQuoteModal';
 
 interface PostDetailProps {
@@ -15,64 +16,27 @@ interface PostDetailProps {
   onRequireUpgrade: () => void;
 }
 
-interface CommentWithVotes extends Comment {
-  vote_count: number;
-  has_voted: boolean;
-}
-
 export function PostDetail({ post, onClose, onRequireAuth, onRequireUpgrade }: PostDetailProps) {
   const { user, profile } = useAuth();
   const { isLessonCompleted, completeLesson } = useGamification();
   const [celebration, setCelebration] = useState<LessonCompletionResult | null>(null);
   const [showShare, setShowShare] = useState(false);
   const lessonDone = isLessonCompleted(post.id);
-  const [comments, setComments] = useState<CommentWithVotes[]>([]);
-  const [loadingComments, setLoadingComments] = useState(true);
-  const [newComment, setNewComment] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [postVotes, setPostVotes] = useState(0);
+  const [commentCount, setCommentCount] = useState(0);
   const [hasVoted, setHasVoted] = useState(false);
   const [voting, setVoting] = useState(false);
 
   const subStatus = profile ? getSubscriptionStatus(profile) : null;
   const isLocked = subStatus?.level === 'locked' && !subStatus?.isAdmin;
 
-  const fetchComments = useCallback(async () => {
-    const { data: commentData } = await supabase
+  const loadCommentCount = useCallback(async () => {
+    const { count } = await supabase
       .from('comments')
-      .select('*')
-      .eq('post_id', post.id)
-      .order('created_at', { ascending: false });
-
-    if (!commentData) return;
-
-    const commentIds = (commentData as Comment[]).map((c) => c.id);
-    if (commentIds.length === 0) {
-      setComments([]);
-      return;
-    }
-
-    const { data: votes } = await supabase
-      .from('comment_votes')
-      .select('comment_id, user_id')
-      .in('comment_id', commentIds);
-
-    const voteMap = new Map<string, { count: number; voted: boolean }>();
-    (votes ?? []).forEach((v: { comment_id: string; user_id: string | null }) => {
-      const existing = voteMap.get(v.comment_id) ?? { count: 0, voted: false };
-      existing.count += 1;
-      if (v.user_id === user?.id) existing.voted = true;
-      voteMap.set(v.comment_id, existing);
-    });
-
-    setComments(
-      (commentData as Comment[]).map((c) => ({
-        ...c,
-        vote_count: voteMap.get(c.id)?.count ?? 0,
-        has_voted: voteMap.get(c.id)?.voted ?? false,
-      })),
-    );
-  }, [post.id, user?.id]);
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', post.id);
+    setCommentCount(count ?? 0);
+  }, [post.id]);
 
   const fetchPostVotes = useCallback(async () => {
     const { count } = await supabase
@@ -94,22 +58,15 @@ export function PostDetail({ post, onClose, onRequireAuth, onRequireUpgrade }: P
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
-    setLoadingComments(true);
-    Promise.all([fetchComments(), fetchPostVotes()]).finally(() =>
-      setLoadingComments(false),
-    );
+    void fetchPostVotes();
+    void loadCommentCount();
 
     const channel = supabase
       .channel(`post-${post.id}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'comments', filter: `post_id=eq.${post.id}` },
-        () => fetchComments(),
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'comment_votes' },
-        () => fetchComments(),
+        { event: 'INSERT', schema: 'public', table: 'comments', filter: `post_id=eq.${post.id}` },
+        () => void loadCommentCount(),
       )
       .on(
         'postgres_changes',
@@ -122,7 +79,7 @@ export function PostDetail({ post, onClose, onRequireAuth, onRequireUpgrade }: P
       document.body.style.overflow = '';
       supabase.removeChannel(channel);
     };
-  }, [post.id, fetchComments, fetchPostVotes]);
+  }, [post.id, fetchPostVotes, loadCommentCount]);
 
   const handleCompleteLesson = () => {
     const result = completeLesson(post.id);
@@ -145,54 +102,6 @@ export function PostDetail({ post, onClose, onRequireAuth, onRequireUpgrade }: P
       setHasVoted(true);
     }
     setVoting(false);
-  };
-
-  const handleCommentVote = async (commentId: string, currentlyVoted: boolean) => {
-    if (!user) { onRequireAuth(); return; }
-    if (isLocked) { onRequireUpgrade(); return; }
-
-    if (currentlyVoted) {
-      await supabase.from('comment_votes').delete().eq('comment_id', commentId).eq('user_id', user.id);
-      setComments((prev) =>
-        prev.map((c) =>
-          c.id === commentId ? { ...c, vote_count: Math.max(0, c.vote_count - 1), has_voted: false } : c,
-        ),
-      );
-    } else {
-      await supabase.from('comment_votes').insert({ comment_id: commentId, user_id: user.id });
-      setComments((prev) =>
-        prev.map((c) =>
-          c.id === commentId ? { ...c, vote_count: c.vote_count + 1, has_voted: true } : c,
-        ),
-      );
-    }
-  };
-
-  const handleSubmitComment = async () => {
-    if (!user) { onRequireAuth(); return; }
-    if (isLocked) { onRequireUpgrade(); return; }
-    if (!newComment.trim() || submitting) return;
-
-    setSubmitting(true);
-    const { data } = await supabase
-      .from('comments')
-      .insert({
-        post_id: post.id,
-        user_id: user.id,
-        author_name: profile?.username ?? 'Anonymous',
-        content: newComment.trim(),
-      })
-      .select('*')
-      .single();
-
-    if (data) {
-      setNewComment('');
-      setComments((prev) => [
-        { ...(data as Comment), vote_count: 0, has_voted: false },
-        ...prev,
-      ]);
-    }
-    setSubmitting(false);
   };
 
   return (
@@ -278,7 +187,7 @@ export function PostDetail({ post, onClose, onRequireAuth, onRequireUpgrade }: P
                 </button>
                 <span className="flex items-center gap-1.5 text-sm text-ink-400">
                   <MessageCircle className="h-4 w-4" />
-                  {comments.length} discussions
+                  {commentCount} discussions
                 </span>
                 <span className="ml-auto text-xs text-ink-500">
                   by {post.author_name}
@@ -451,93 +360,12 @@ export function PostDetail({ post, onClose, onRequireAuth, onRequireUpgrade }: P
                 </div>
               )}
 
-              {/* Discussion section */}
-              <div className="mt-10 border-t border-ink-800 pt-8">
-                <h3 className="mb-1 font-serif text-xl font-semibold text-ink-100">Discussion</h3>
-                <p className="mb-6 text-sm text-ink-400">
-                  Share how this principle applied to your life, work, or education.
-                </p>
-
-                {/* Comment form */}
-                {user && !isLocked ? (
-                  <div className="mb-6 space-y-3 rounded-2xl border border-ink-800 bg-ink-850/50 p-5">
-                    <div className="flex items-center gap-2 text-xs text-ink-400">
-                      <span className="font-medium text-gold-400">{profile?.username ?? 'You'}</span>
-                    </div>
-                    <textarea
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      placeholder="Share your perspective — how did this apply to your life?"
-                      rows={3}
-                      className="w-full resize-none rounded-xl border border-ink-700 bg-ink-900/60 px-4 py-3 text-sm text-ink-100 placeholder:text-ink-500 focus:border-gold-500/50 focus:outline-none focus:ring-1 focus:ring-gold-500/30"
-                    />
-                    <div className="flex justify-end">
-                      <button
-                        onClick={handleSubmitComment}
-                        disabled={!newComment.trim() || submitting}
-                        className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-gold-400 to-gold-600 px-4 py-2 text-sm font-semibold text-ink-950 transition-all hover:shadow-gold-500/30 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                        Post
-                      </button>
-                    </div>
-                  </div>
-                ) : !user ? (
-                  <div className="mb-6 rounded-2xl border border-ink-800 bg-ink-850/50 p-5 text-center">
-                    <p className="text-sm text-ink-400 mb-3">Sign in to join the discussion.</p>
-                    <button
-                      onClick={onRequireAuth}
-                      className="rounded-full border border-gold-500/40 bg-gold-500/10 px-5 py-2 text-sm font-medium text-gold-400 transition-colors hover:bg-gold-500/20"
-                    >
-                      Sign in
-                    </button>
-                  </div>
-                ) : (
-                  <div className="mb-6 rounded-2xl border border-gold-500/30 bg-gold-500/5 p-5 text-center">
-                    <p className="text-sm text-ink-400 mb-3">Upgrade to Pro to continue commenting.</p>
-                    <button
-                      onClick={onRequireUpgrade}
-                      className="rounded-full bg-gradient-to-r from-gold-400 to-gold-600 px-5 py-2 text-sm font-semibold text-ink-950 transition-all hover:shadow-gold-500/30"
-                    >
-                      Upgrade — $5/month
-                    </button>
-                  </div>
-                )}
-
-                {/* Comments list */}
-                {loadingComments ? (
-                  <div className="flex justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-ink-500" />
-                  </div>
-                ) : comments.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-ink-400">
-                    No discussions yet. Be the first to share.
-                  </p>
-                ) : (
-                  <div className="space-y-4">
-                    {comments.map((comment) => (
-                      <div key={comment.id} className="rounded-2xl border border-ink-800 bg-ink-850/30 p-4 sm:p-5">
-                        <div className="mb-2 flex items-center justify-between">
-                          <span className="text-sm font-semibold text-gold-400">{comment.author_name}</span>
-                          <span className="text-xs text-ink-500">
-                            {new Date(comment.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          </span>
-                        </div>
-                        <p className="mb-3 text-sm leading-relaxed text-ink-200">{comment.content}</p>
-                        <button
-                          onClick={() => handleCommentVote(comment.id, comment.has_voted)}
-                          className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${
-                            comment.has_voted ? 'text-gold-400' : 'text-ink-400 hover:text-gold-400'
-                          }`}
-                        >
-                          <ArrowUp className={`h-3.5 w-3.5 ${comment.has_voted ? 'scale-110' : ''}`} strokeWidth={2.5} />
-                          {comment.vote_count}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <ReflectionsSection
+                postId={post.id}
+                isLocked={isLocked}
+                onRequireAuth={onRequireAuth}
+                onRequireUpgrade={onRequireUpgrade}
+              />
             </div>
           </article>
           {celebration && (
