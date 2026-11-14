@@ -19,6 +19,9 @@ import { PremiumLockModal } from '@/components/PremiumLockModal';
 import { useGamification } from '@/context/GamificationContext';
 import { SenseiMascot, type SenseiMood } from '@/components/SenseiMascot';
 import { StreakDrawer } from '@/components/StreakDrawer';
+import { SettingsSheet } from '@/components/SettingsSheet';
+import { OfflineBanner } from '@/components/OfflineBanner';
+import { startReminderWatcher } from '@/lib/reminders';
 import { BottomTabBar, type TabId } from '@/components/BottomTabBar';
 
 interface FeedPost extends Post {
@@ -49,10 +52,12 @@ function App() {
 
   const [activeTab, setActiveTab] = useState<TabId>('feed');
   const [showStreakDrawer, setShowStreakDrawer] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  useEffect(() => startReminderWatcher(), []);
   const { streak: lessonStreak, todayXp, goalMet } = useGamification();
 
   useEffect(() => {
-    const sectionIds: Exclude<TabId, 'share'>[] = ['feed', 'streak', 'about'];
+    const sectionIds: Extract<TabId, 'feed' | 'streak' | 'about'>[] = ['feed', 'streak', 'about'];
     const onScroll = () => {
       const probe = window.innerHeight * 0.35;
       let current: TabId = 'feed';
@@ -214,6 +219,10 @@ function App() {
       handleSubmitClick();
       return;
     }
+    if (tab === 'settings') {
+      setShowSettings(true);
+      return;
+    }
     setActiveTab(tab);
     document.getElementById(tab)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
@@ -254,6 +263,7 @@ function App() {
 
   return (
     <div className="mx-auto min-h-[100dvh] w-full max-w-md overflow-x-hidden bg-ink-950 pb-24 md:border-x md:border-ink-800/80 md:shadow-2xl">
+      <OfflineBanner />
       <Header
         onLogoClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
         onSubmitClick={handleSubmitClick}
@@ -582,6 +592,7 @@ function App() {
       )}
       {showWelcome && <WelcomeModal onClose={handleWelcomeClose} />}
       {showStreakDrawer && <StreakDrawer onClose={() => setShowStreakDrawer(false)} />}
+      {showSettings && <SettingsSheet onClose={() => setShowSettings(false)} />}
     </div>
   );
 }

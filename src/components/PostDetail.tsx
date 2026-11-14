@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { X, BookOpen, Quote as QuoteIcon, ArrowUp, MessageCircle, Loader2, Send, Lock, Globe, ListChecks, Wrench, Zap, Check } from 'lucide-react';
+import { X, BookOpen, Quote as QuoteIcon, ArrowUp, MessageCircle, Loader2, Send, Lock, Globe, ListChecks, Wrench, Zap, Check, Share2 } from 'lucide-react';
 import { supabase, type Post, type Comment } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { getSubscriptionStatus } from '@/lib/subscription';
 import { XP_PER_LESSON } from '@/lib/gamification';
 import { useGamification, type LessonCompletionResult } from '@/context/GamificationContext';
 import { LessonCelebrationCard } from '@/components/LessonCelebrationCard';
+import { ShareQuoteModal } from '@/components/ShareQuoteModal';
 
 interface PostDetailProps {
   post: Post;
@@ -23,6 +24,7 @@ export function PostDetail({ post, onClose, onRequireAuth, onRequireUpgrade }: P
   const { user, profile } = useAuth();
   const { isLessonCompleted, completeLesson } = useGamification();
   const [celebration, setCelebration] = useState<LessonCompletionResult | null>(null);
+  const [showShare, setShowShare] = useState(false);
   const lessonDone = isLessonCompleted(post.id);
   const [comments, setComments] = useState<CommentWithVotes[]>([]);
   const [loadingComments, setLoadingComments] = useState(true);
@@ -198,7 +200,14 @@ export function PostDetail({ post, onClose, onRequireAuth, onRequireUpgrade }: P
       <div className="min-h-screen px-4 py-6 sm:px-6 sm:py-12">
         <div className="mx-auto max-w-3xl">
           {/* Close bar */}
-          <div className="mb-6 flex justify-end">
+          <div className="mb-6 flex justify-end gap-3">
+            <button
+              onClick={() => setShowShare(true)}
+              className="flex items-center gap-2 rounded-full border border-gold-500/30 bg-ink-900 px-4 py-2 text-sm font-medium text-gold-400 transition-colors hover:border-gold-500/60 hover:text-gold-300 active:scale-95"
+            >
+              <Share2 className="h-4 w-4" />
+              Share Wisdom
+            </button>
             <button
               onClick={onClose}
               className="flex items-center gap-2 rounded-full border border-ink-700 bg-ink-900 px-4 py-2 text-sm font-medium text-ink-200 transition-colors hover:border-ink-600 hover:text-ink-100"
@@ -533,6 +542,14 @@ export function PostDetail({ post, onClose, onRequireAuth, onRequireUpgrade }: P
           </article>
           {celebration && (
             <LessonCelebrationCard result={celebration} onContinue={onClose} />
+          )}
+          {showShare && (
+            <ShareQuoteModal
+              quote={post.title}
+              title={post.title}
+              category={post.category}
+              onClose={() => setShowShare(false)}
+            />
           )}
         </div>
       </div>

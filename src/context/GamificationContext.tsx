@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { celebrateCompletion } from '@/utils/feedback';
 import {
   DEFAULT_DAILY_GOAL_XP,
   applyLessonCompletion,
@@ -49,7 +50,10 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
     isLessonCompleted: (postId) => state.completedPostIds.includes(postId),
     completeLesson: (postId) => {
       const next = applyLessonCompletion(state, postId, new Date());
-      if (next.xpGained > 0) setState(next.state);
+      if (next.xpGained > 0) {
+        setState(next.state);
+        celebrateCompletion();
+      }
       return { xpGained: next.xpGained, streak: getLessonStreak(next.state, new Date()) };
     },
   };
