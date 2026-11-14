@@ -198,7 +198,7 @@ export function PostDetail({ post, onClose, onRequireAuth, onRequireUpgrade }: P
           </div>
 
           {/* Article */}
-          <article className="animate-fade-in-up overflow-hidden rounded-3xl border border-ink-800 bg-ink-900/80 shadow-2xl shadow-black/50">
+          <article className="animate-slide-up overflow-hidden rounded-3xl border border-ink-800 bg-ink-900/80 shadow-2xl shadow-black/50">
             {/* Hero image */}
             {post.image_url && (
               <div className="relative h-56 overflow-hidden sm:h-80">

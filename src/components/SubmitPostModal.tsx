@@ -94,7 +94,7 @@ export function SubmitPostModal({ onClose, onSubmitted }: SubmitPostModalProps) 
             </button>
           </div>
 
-          <div className="animate-fade-in-up rounded-3xl border border-ink-800 bg-ink-900/80 p-6 shadow-2xl shadow-black/50 sm:p-8 md:p-10">
+          <div className="animate-slide-up rounded-3xl border border-ink-800 bg-ink-900/80 p-6 shadow-2xl shadow-black/50 sm:p-8 md:p-10">
             <h2 className="mb-2 font-serif text-2xl font-semibold text-ink-100">
               Share Your Perspective
             </h2>

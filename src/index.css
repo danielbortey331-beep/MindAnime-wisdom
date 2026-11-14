@@ -5,12 +5,47 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html,
+  body {
+    overscroll-behavior-y: none;
   }
 
   body {
     @apply bg-ink-950 text-ink-100 font-sans antialiased;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  button,
+  a,
+  nav,
+  header,
+  h1,
+  h2,
+  h3,
+  h4 {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  article p,
+  article li {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  input,
+  textarea,
+  [contenteditable='true'] {
+    -webkit-user-select: text;
+    user-select: text;
   }
 
   ::selection {

@@ -44,7 +44,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-ink-950/85 backdrop-blur-md animate-fade-in px-4">
-      <div className="relative w-full max-w-md animate-fade-in-up rounded-3xl border border-ink-800 bg-ink-900/90 p-6 shadow-2xl shadow-black/50 sm:p-8">
+      <div className="relative w-full max-w-md animate-slide-up rounded-3xl border border-ink-800 bg-ink-900/90 p-6 shadow-2xl shadow-black/50 sm:p-8">
         <button
           onClick={onClose}
           className="absolute right-4 top-4 text-ink-500 transition-colors hover:text-ink-200"

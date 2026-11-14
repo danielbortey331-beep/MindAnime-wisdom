@@ -40,7 +40,7 @@ export function PaywallModal({ onClose }: PaywallModalProps) {
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-ink-950/85 backdrop-blur-md animate-fade-in px-4">
-      <div className="relative w-full max-w-md animate-fade-in-up overflow-hidden rounded-3xl border border-gold-500/30 bg-ink-900/90 shadow-2xl shadow-gold-600/10 sm:max-w-lg">
+      <div className="relative w-full max-w-md animate-slide-up overflow-hidden rounded-3xl border border-gold-500/30 bg-ink-900/90 shadow-2xl shadow-gold-600/10 sm:max-w-lg">
         <button
           onClick={onClose}
           className="absolute right-4 top-4 z-10 text-ink-500 transition-colors hover:text-ink-200"

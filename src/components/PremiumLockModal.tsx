@@ -50,7 +50,7 @@ export function PremiumLockModal({ category, onClose }: PremiumLockModalProps) {
             </button>
           </div>
 
-          <div className="animate-fade-in-up rounded-3xl border border-ink-800 bg-ink-900/80 p-8 shadow-2xl shadow-black/50 text-center">
+          <div className="animate-slide-up rounded-3xl border border-ink-800 bg-ink-900/80 p-8 shadow-2xl shadow-black/50 text-center">
             <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-gold-500/30 bg-gold-500/10">
               <Lock className="h-7 w-7 text-gold-400" strokeWidth={2} />
             </div>

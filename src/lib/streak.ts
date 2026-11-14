@@ -90,7 +90,7 @@ export function registerDailyVisit(): StreakUpdate {
   return {
     data: updated,
     streakIncreased: true,
-    newMilestone,
+    newMilestone: newMilestone ?? null,
   };
 }
 

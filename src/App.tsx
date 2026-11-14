@@ -16,6 +16,7 @@ import { PaywallModal } from '@/components/PaywallModal';
 import { UpgradeBanner } from '@/components/UpgradeBanner';
 import { WelcomeModal } from '@/components/WelcomeModal';
 import { PremiumLockModal } from '@/components/PremiumLockModal';
+import { BottomTabBar, type TabId } from '@/components/BottomTabBar';
 
 interface FeedPost extends Post {
   vote_count: number;
@@ -42,6 +43,24 @@ function App() {
   const [sortBy, setSortBy] = useState<'top' | 'new'>('top');
   const [streak, setStreak] = useState<StreakData | null>(null);
   const [milestone, setMilestone] = useState<number | null>(null);
+
+  const [activeTab, setActiveTab] = useState<TabId>('feed');
+
+  useEffect(() => {
+    const sectionIds: Exclude<TabId, 'share'>[] = ['feed', 'streak', 'about'];
+    const onScroll = () => {
+      const probe = window.innerHeight * 0.35;
+      let current: TabId = 'feed';
+      for (const id of sectionIds) {
+        const el = document.getElementById(id);
+        if (el && el.getBoundingClientRect().top <= probe) current = id;
+      }
+      setActiveTab(current);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   const subStatus: SubscriptionStatus | null = profile ? getSubscriptionStatus(profile) : null;
 
@@ -185,6 +204,15 @@ function App() {
     setShowSubmitModal(true);
   };
 
+  const handleTabSelect = (tab: TabId) => {
+    if (tab === 'share') {
+      handleSubmitClick();
+      return;
+    }
+    setActiveTab(tab);
+    document.getElementById(tab)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   const handleWelcomeClose = () => {
     localStorage.setItem(WELCOME_SEEN_KEY, 'true');
     setShowWelcome(false);
@@ -208,7 +236,7 @@ function App() {
   const showBanner = !isAdmin && subStatus && shouldShowUpgradeBanner(subStatus) && !bannerDismissed;
 
   return (
-    <div className="min-h-screen bg-ink-950">
+    <div className="mx-auto min-h-[100dvh] w-full max-w-md overflow-x-hidden bg-ink-950 pb-24 md:border-x md:border-ink-800/80 md:shadow-2xl">
       <Header
         onLogoClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
         onSubmitClick={handleSubmitClick}
@@ -314,7 +342,7 @@ function App() {
       </section>
 
       {/* Main Feed */}
-      <section id="feed" className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
+      <section id="feed" className="mx-auto max-w-6xl scroll-mt-20 px-5 py-16 sm:px-8 sm:py-20">
         <div className="mb-8 text-center">
           <h2 className="mb-2 font-serif text-3xl font-semibold text-ink-100 sm:text-4xl">
             The Insight Feed
@@ -381,7 +409,7 @@ function App() {
             )}
           </div>
         ) : (
-          <div className="grid gap-5 sm:grid-cols-2 sm:gap-6">
+          <div className="grid gap-5">
             {sortedPosts.map((post, i) => (
               <PostCard
                 key={post.id}
@@ -401,7 +429,7 @@ function App() {
 
       {/* Streak section */}
       {streak && (
-        <section id="streak" className="mx-auto max-w-6xl px-5 py-12 sm:px-8">
+        <section id="streak" className="mx-auto max-w-6xl scroll-mt-20 px-5 py-12 sm:px-8">
           <div className="grid gap-6 lg:grid-cols-[1fr_1.5fr]">
             <StreakWidget streak={streak} />
             <div className="flex flex-col justify-center rounded-2xl border border-ink-800 bg-ink-900/40 p-6 sm:p-8">
@@ -444,7 +472,7 @@ function App() {
       )}
 
       {/* About section */}
-      <section id="about" className="relative overflow-hidden border-y border-ink-800/60 bg-ink-900/30">
+      <section id="about" className="relative scroll-mt-20 overflow-hidden border-y border-ink-800/60 bg-ink-900/30">
         <div className="absolute left-1/2 top-1/2 h-[300px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-sage-500/5 blur-[100px]" />
         <div className="relative mx-auto max-w-4xl px-5 py-16 sm:px-8 sm:py-20">
           <div className="mb-10 text-center">
@@ -465,7 +493,7 @@ function App() {
             </p>
           </div>
 
-          <div className="grid gap-6 sm:grid-cols-3">
+          <div className="grid gap-6">
             <div className="rounded-2xl border border-ink-800 bg-ink-850/40 p-6 text-center">
               <BookOpen className="mx-auto mb-3 h-8 w-8 text-gold-400" />
               <h3 className="mb-2 font-serif text-lg font-semibold text-ink-100">Curated Insights</h3>
@@ -504,6 +532,8 @@ function App() {
           </div>
         </div>
       </footer>
+
+      <BottomTabBar active={activeTab} onSelect={handleTabSelect} />
 
       {/* Modals */}
       {selectedPost && (
