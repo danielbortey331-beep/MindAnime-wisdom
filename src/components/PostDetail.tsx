@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { X, BookOpen, Quote as QuoteIcon, ArrowUp, MessageCircle, Loader2, Send, Lock, Globe, ListChecks, Wrench, Zap, Check, Share2 } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { ArrowLeft, BookOpen, Quote as QuoteIcon, ArrowUp, MessageCircle, Loader2, Send, Lock, Globe, ListChecks, Wrench, Zap, Check, Share2, Square, Volume2 } from 'lucide-react';
 import { supabase, type Post, type Comment } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { getSubscriptionStatus } from '@/lib/subscription';
@@ -8,6 +8,8 @@ import { useGamification, type LessonCompletionResult } from '@/context/Gamifica
 import { LessonCelebrationCard } from '@/components/LessonCelebrationCard';
 import { ReflectionsSection } from '@/components/ReflectionsSection';
 import { ShareQuoteModal } from '@/components/ShareQuoteModal';
+import { SPEECH_SUPPORTED, buildPostSpeechText } from '@/hooks/useSpeech';
+import { useNarration } from '@/hooks/useNarration';
 
 interface PostDetailProps {
   post: Post;
@@ -26,6 +28,28 @@ export function PostDetail({ post, onClose, onRequireAuth, onRequireUpgrade }: P
   const [commentCount, setCommentCount] = useState(0);
   const [hasVoted, setHasVoted] = useState(false);
   const [voting, setVoting] = useState(false);
+  const { status: narrationStatus, error: narrationError, speak, pause, resume, stop } = useNarration();
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    window.history.pushState({ postDetail: post.id }, '');
+    const handlePop = () => onCloseRef.current();
+    window.addEventListener('popstate', handlePop);
+    return () => window.removeEventListener('popstate', handlePop);
+  }, [post.id]);
+
+  const goBack = () => window.history.back();
+
+  const handleListen = () => {
+    if (narrationStatus === 'playing') {
+      pause();
+    } else if (narrationStatus === 'paused') {
+      resume();
+    } else if (narrationStatus === 'idle') {
+      void speak(buildPostSpeechText(post));
+    }
+  };
 
   const subStatus = profile ? getSubscriptionStatus(profile) : null;
   const isLocked = subStatus?.level === 'locked' && !subStatus?.isAdmin;
@@ -108,22 +132,75 @@ export function PostDetail({ post, onClose, onRequireAuth, onRequireUpgrade }: P
     <div className="fixed inset-0 z-50 overflow-y-auto bg-ink-950/85 backdrop-blur-md animate-fade-in">
       <div className="min-h-screen px-4 py-6 sm:px-6 sm:py-12">
         <div className="mx-auto max-w-3xl">
-          {/* Close bar */}
-          <div className="mb-6 flex justify-end gap-3">
-            <button
-              onClick={() => setShowShare(true)}
-              className="flex items-center gap-2 rounded-full border border-gold-500/30 bg-ink-900 px-4 py-2 text-sm font-medium text-gold-400 transition-colors hover:border-gold-500/60 hover:text-gold-300 active:scale-95"
-            >
-              <Share2 className="h-4 w-4" />
-              Share Wisdom
-            </button>
-            <button
-              onClick={onClose}
-              className="flex items-center gap-2 rounded-full border border-ink-700 bg-ink-900 px-4 py-2 text-sm font-medium text-ink-200 transition-colors hover:border-ink-600 hover:text-ink-100"
-            >
-              <X className="h-4 w-4" />
-              Close
-            </button>
+          {/* Sticky navigation */}
+          <div className="sticky top-0 z-20 -mx-4 mb-6 border-b border-ink-800/80 bg-ink-950/90 px-4 pb-3 pt-3 backdrop-blur-md sm:-mx-6 sm:px-6">
+            <div className="flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={goBack}
+                className="flex items-center gap-2 rounded-full border border-ink-700 bg-ink-900 px-4 py-2 text-sm font-medium text-ink-200 transition-colors hover:border-ink-600 hover:text-ink-100 active:scale-95"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </button>
+              <button
+                onClick={() => setShowShare(true)}
+                className="flex items-center gap-2 rounded-full border border-gold-500/30 bg-ink-900 px-4 py-2 text-sm font-medium text-gold-400 transition-colors hover:border-gold-500/60 hover:text-gold-300 active:scale-95"
+              >
+                <Share2 className="h-4 w-4" />
+                Share Wisdom
+              </button>
+            </div>
+            {SPEECH_SUPPORTED && !isLocked && (
+              <div className="mt-3 flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={handleListen}
+                  disabled={narrationStatus === 'loading'}
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-gold-400 to-gold-600 px-5 py-2.5 text-sm font-semibold text-ink-950 shadow-lg shadow-gold-600/20 transition-all active:scale-95 disabled:opacity-80"
+                >
+                  {narrationStatus === 'loading' && (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Synthesizing Human Narration...
+                    </>
+                  )}
+                  {narrationStatus === 'playing' && (
+                    <>
+                      <Square className="h-4 w-4" />
+                      Pause narration
+                    </>
+                  )}
+                  {narrationStatus === 'paused' && (
+                    <>
+                      <Volume2 className="h-4 w-4" />
+                      Resume narration
+                    </>
+                  )}
+                  {narrationStatus === 'idle' && (
+                    <>
+                      <Volume2 className="h-4 w-4" />
+                      Listen to Audio (Human Voice)
+                    </>
+                  )}
+                </button>
+                {narrationStatus === 'playing' && (
+                  <button
+                    type="button"
+                    onClick={stop}
+                    className="flex w-full items-center justify-center gap-2 rounded-full border border-ink-700 bg-ink-900 px-5 py-2 text-xs font-medium text-ink-300 transition-colors hover:border-ink-600 hover:text-ink-100 active:scale-95"
+                  >
+                    <Square className="h-3.5 w-3.5" />
+                    Stop
+                  </button>
+                )}
+                {narrationError && (
+                  <p role="alert" className="px-2 text-xs text-amber-400">
+                    {narrationError} — using your device voice instead.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Article */}
@@ -369,7 +446,7 @@ export function PostDetail({ post, onClose, onRequireAuth, onRequireUpgrade }: P
             </div>
           </article>
           {celebration && (
-            <LessonCelebrationCard result={celebration} onContinue={onClose} />
+            <LessonCelebrationCard result={celebration} onContinue={goBack} />
           )}
           {showShare && (
             <ShareQuoteModal

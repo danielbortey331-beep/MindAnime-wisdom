@@ -9,6 +9,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
+export const functionsUrl = `${supabaseUrl ?? 'http://localhost:54321'}/functions/v1`;
+
 export const supabase: SupabaseClient = createClient(
   supabaseUrl ?? 'http://localhost:54321',
   supabaseAnonKey ?? 'placeholder-anon-key',

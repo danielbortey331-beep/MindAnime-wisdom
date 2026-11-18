@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Sparkles, BookOpen, Lightbulb, Loader2, Users, TrendingUp, PenLine, Flame, Lock } from 'lucide-react';
 import { supabase, type Post, type Comment, type Category, PREMIUM_CATEGORIES } from '@/lib/supabase';
 import { registerDailyVisit, type StreakData } from '@/lib/streak';
@@ -17,7 +17,9 @@ import { UpgradeBanner } from '@/components/UpgradeBanner';
 import { WelcomeModal } from '@/components/WelcomeModal';
 import { PremiumLockModal } from '@/components/PremiumLockModal';
 import { useGamification } from '@/context/GamificationContext';
-import { SenseiMascot, type SenseiMood } from '@/components/SenseiMascot';
+import { SenseiMascot } from '@/components/SenseiMascot';
+import { SenseiChatSheet } from '@/components/SenseiChatSheet';
+import { getSenseiMessage, getSenseiMood, type SenseiContext } from '@/lib/sensei';
 import { StreakDrawer } from '@/components/StreakDrawer';
 import { SettingsSheet } from '@/components/SettingsSheet';
 import { OfflineBanner } from '@/components/OfflineBanner';
@@ -53,8 +55,20 @@ function App() {
   const [activeTab, setActiveTab] = useState<TabId>('feed');
   const [showStreakDrawer, setShowStreakDrawer] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showSensei, setShowSensei] = useState(false);
   useEffect(() => startReminderWatcher(), []);
-  const { streak: lessonStreak, todayXp, goalMet } = useGamification();
+  const { streak: lessonStreak, todayXp, goalMet, totalXp } = useGamification();
+  const [celebrating, setCelebrating] = useState(false);
+  const prevXpRef = useRef(totalXp);
+
+  useEffect(() => {
+    const gained = totalXp > prevXpRef.current;
+    prevXpRef.current = totalXp;
+    if (!gained) return;
+    setCelebrating(true);
+    const timer = window.setTimeout(() => setCelebrating(false), 4000);
+    return () => window.clearTimeout(timer);
+  }, [totalXp]);
 
   useEffect(() => {
     const sectionIds: Extract<TabId, 'feed' | 'streak' | 'about'>[] = ['feed', 'streak', 'about'];
@@ -249,17 +263,17 @@ function App() {
 
   const showBanner = !isAdmin && subStatus && shouldShowUpgradeBanner(subStatus) && !bannerDismissed;
 
-  const mascotMood: SenseiMood = goalMet
-    ? 'zen'
-    : lessonStreak > 0 && todayXp === 0
-      ? 'urgent'
-      : 'welcoming';
-  const mascotMessage =
-    mascotMood === 'zen'
-      ? 'Daily goal reached. Your mind grows sharper every day.'
-      : mascotMood === 'urgent'
-        ? `Don't let your ${lessonStreak}-day focus streak burn out!`
-        : "Your mind is your sharpest blade. Ready for today's lesson?";
+  const senseiContext: SenseiContext = {
+    visitStreak: streak?.current_streak ?? 0,
+    lessonStreak,
+    todayXp,
+    goalMet,
+    celebrating,
+    hour: new Date().getHours(),
+    isFree: !isAdmin && !subStatus?.isPro,
+  };
+  const mascotMood = getSenseiMood(senseiContext);
+  const mascotMessage = getSenseiMessage(mascotMood, senseiContext);
 
   return (
     <div className="mx-auto min-h-[100dvh] w-full max-w-md overflow-x-hidden bg-ink-950 pb-24 md:border-x md:border-ink-800/80 md:shadow-2xl">
@@ -370,6 +384,14 @@ function App() {
 
       {/* Main Feed */}
       <section id="feed" className="mx-auto max-w-6xl scroll-mt-20 px-5 py-16 sm:px-8 sm:py-20">
+        <div className="mb-12">
+          <SenseiMascot
+            mood={mascotMood}
+            message={mascotMessage}
+            onClick={() => setShowSensei(true)}
+          />
+        </div>
+
         <div className="mb-8 text-center">
           <h2 className="mb-2 font-serif text-3xl font-semibold text-ink-100 sm:text-4xl">
             The Insight Feed
@@ -379,12 +401,6 @@ function App() {
           </p>
         </div>
 
-        {/* Sensei mentor */}
-        <div className="mb-10">
-          <SenseiMascot mood={mascotMood} message={mascotMessage} />
-        </div>
-
-        {/* Controls */}
         <div className="mb-10 flex flex-col items-center gap-4">
           <CategoryFilter
             active={activeCategory}
@@ -591,6 +607,17 @@ function App() {
         />
       )}
       {showWelcome && <WelcomeModal onClose={handleWelcomeClose} />}
+      {showSensei && (
+        <SenseiChatSheet
+          context={senseiContext}
+          message={mascotMessage}
+          onClose={() => setShowSensei(false)}
+          onOpenStreak={() => {
+            setShowSensei(false);
+            setShowStreakDrawer(true);
+          }}
+        />
+      )}
       {showStreakDrawer && <StreakDrawer onClose={() => setShowStreakDrawer(false)} />}
       {showSettings && <SettingsSheet onClose={() => setShowSettings(false)} />}
     </div>

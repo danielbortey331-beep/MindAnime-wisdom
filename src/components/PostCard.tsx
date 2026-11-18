@@ -1,5 +1,6 @@
-import { ArrowUp, MessageCircle, BookOpen, Lock } from 'lucide-react';
+import { ArrowUp, MessageCircle, BookOpen, Lock, Square, Volume2 } from 'lucide-react';
 import type { Post } from '@/lib/supabase';
+import { SPEECH_SUPPORTED, useSpeech, useVoices } from '@/hooks/useSpeech';
 
 interface PostCardProps {
   post: Post;
@@ -22,6 +23,9 @@ export function PostCard({
   index,
   locked = false,
 }: PostCardProps) {
+  const { speaking, speak, stop } = useSpeech();
+  const voices = useVoices();
+
   return (
     <article
       onClick={onClick}
@@ -113,7 +117,25 @@ export function PostCard({
             <MessageCircle className="h-3.5 w-3.5" />
             {commentCount}
           </span>
-          <span className="ml-auto text-xs text-ink-500">{post.author_name}</span>
+          {SPEECH_SUPPORTED && (
+            <button
+              type="button"
+              aria-label={speaking ? 'Stop audio' : 'Listen to this insight'}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (speaking) stop();
+                else speak(`${post.title}. ${post.excerpt}`, voices);
+              }}
+              className={`ml-auto flex h-8 w-8 items-center justify-center rounded-full border transition-all active:scale-90 ${
+                speaking
+                  ? 'border-gold-500/50 bg-gold-500/15 text-gold-400'
+                  : 'border-ink-700 bg-ink-850 text-ink-300 hover:border-gold-500/40 hover:text-gold-400'
+              }`}
+            >
+              {speaking ? <Square className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+            </button>
+          )}
+          <span className="text-xs text-ink-500">{post.author_name}</span>
         </div>
       </div>
     </article>
